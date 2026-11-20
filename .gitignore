@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Segredos
+.env
+.env.local
+.env*.local
+
+# Arquivos locais (ficam só na sua máquina)
+videos/
+projetos/
+public/media/

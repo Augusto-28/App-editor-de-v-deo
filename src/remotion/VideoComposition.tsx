@@ -1,5 +1,6 @@
-import { AbsoluteFill, Sequence, useCurrentFrame, useVideoConfig, interpolate, spring } from 'remotion';
-import type { CompositionState, TextLayer, ShapeLayer, AnimationType } from './types';
+import { AbsoluteFill, Img, Sequence, staticFile, useCurrentFrame, useVideoConfig, interpolate } from 'remotion';
+import { VIDEO_WIDTH, VIDEO_HEIGHT, SAFE_SIDE } from './types';
+import type { CompositionState, TextLayer, ShapeLayer, ImageLayer, AnimationType } from './types';
 
 function getAnimationStyle(
   frame: number,
@@ -63,14 +64,18 @@ function TextLayerComponent({ layer }: { layer: TextLayer }) {
     <div
       style={{
         position: 'absolute',
-        left: (layer.x ?? 640) - 'auto',
-        top: layer.y ?? 320,
+        left: layer.x ?? VIDEO_WIDTH / 2,
+        top: layer.y ?? VIDEO_HEIGHT / 2,
         transform: `translateX(-50%) ${animStyle.transform ?? ''}`,
-        fontSize: layer.fontSize ?? 48,
+        // Quebra linha em vez de vazar para fora do vídeo vertical
+        maxWidth: VIDEO_WIDTH - SAFE_SIDE * 2,
+        width: 'max-content',
+        fontSize: layer.fontSize ?? 64,
+        lineHeight: 1.15,
         color: layer.color ?? '#ffffff',
         fontWeight: layer.fontWeight ?? 'normal',
         fontFamily: 'system-ui, sans-serif',
-        whiteSpace: 'nowrap',
+        whiteSpace: 'pre-wrap',
         opacity: animStyle.opacity ?? 1,
         textAlign: 'center',
       }}
@@ -92,12 +97,38 @@ function ShapeLayerComponent({ layer }: { layer: ShapeLayer }) {
     <div
       style={{
         position: 'absolute',
-        left: (layer.x ?? 640) - w / 2,
-        top: (layer.y ?? 360) - h / 2,
+        left: (layer.x ?? VIDEO_WIDTH / 2) - w / 2,
+        top: (layer.y ?? VIDEO_HEIGHT / 2) - h / 2,
         width: w,
         height: h,
         backgroundColor: layer.fill ?? '#6366f1',
         borderRadius: layer.shapeType === 'circle' ? '50%' : '0',
+        ...animStyle,
+      }}
+    />
+  );
+}
+
+function ImageLayerComponent({ layer }: { layer: ImageLayer }) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const animStyle = getAnimationStyle(frame, fps, layer.animation, layer.durationInFrames);
+
+  const w = layer.width ?? VIDEO_WIDTH;
+  const h = layer.height ?? VIDEO_WIDTH;
+  // Arquivos locais ficam em public/ (ex.: "media/foto.png"); URLs externas passam direto
+  const src = /^(https?:|data:|blob:)/.test(layer.src) ? layer.src : staticFile(layer.src.replace(/^\/+/, ''));
+
+  return (
+    <Img
+      src={src}
+      style={{
+        position: 'absolute',
+        left: (layer.x ?? VIDEO_WIDTH / 2) - w / 2,
+        top: (layer.y ?? VIDEO_HEIGHT / 2) - h / 2,
+        width: w,
+        height: h,
+        objectFit: 'cover',
         ...animStyle,
       }}
     />
@@ -110,7 +141,8 @@ export function VideoComposition({ state }: { state: CompositionState }) {
       {state.layers.map((layer) => (
         <Sequence key={layer.id} from={layer.from} durationInFrames={layer.durationInFrames}>
           {layer.type === 'text' && <TextLayerComponent layer={layer} />}
-          {layer.type === 'shape' && <ShapeLayerComponent layer={layer as ShapeLayer} />}
+          {layer.type === 'shape' && <ShapeLayerComponent layer={layer} />}
+          {layer.type === 'image' && layer.src && <ImageLayerComponent layer={layer} />}
         </Sequence>
       ))}
     </AbsoluteFill>

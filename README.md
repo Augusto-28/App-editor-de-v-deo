@@ -6,9 +6,8 @@ Editor de vídeo inteligente usando **Next.js**, **Remotion** e **Claude AI**.
 
 - **Next.js 14** — Framework React com App Router
 - **Remotion** — Criação de vídeos programaticamente com React
-- **Claude API (Opus 4.6)** — IA para interpretar e aplicar edições em linguagem natural
+- **Claude API (Opus 5.5)** — IA para interpretar e aplicar edições em linguagem natural
 - **Tailwind CSS** — Estilização
-- **Supabase** — Storage e banco de dados *(em breve)*
 
 ## Como funciona
 
@@ -16,6 +15,10 @@ Editor de vídeo inteligente usando **Next.js**, **Remotion** e **Claude AI**.
 2. O usuário digita um comando em português no chat
 3. Claude interpreta o comando e usa a ferramenta `update_composition` para retornar o estado atualizado
 4. O Remotion Player renderiza o vídeo atualizado em tempo real
+5. O botão **Exportar MP4** gera o Reel vertical (1080x1920, 30fps, H.264) na sua máquina
+
+Tudo fica local: os vídeos vão para `videos/`, os projetos (JSON) para `projetos/`
+e as imagens que você usar em `public/media/`. As três pastas estão no `.gitignore`.
 
 ## Setup
 
@@ -47,6 +50,19 @@ npm run dev
 
 Acesse http://localhost:3000
 
+### 4. Exportar o Reel
+
+Clique em **Exportar MP4** no editor. Na primeira vez o Remotion baixa um Chrome
+headless (uns 100 MB), depois cada Reel curto leva poucos segundos.
+
+Também dá para renderizar um projeto salvo pela linha de comando:
+
+```bash
+npm run render -- videos/meu-reel.mp4 --props=projetos/meu-reel.json
+```
+
+E `npm run studio` abre o Remotion Studio para ajustar a composição.
+
 ## Exemplos de comandos
 
 - `"Mude o título para Bem-vindo"`
@@ -61,6 +77,7 @@ Acesse http://localhost:3000
 src/
 ├── app/
 │   ├── api/ai/route.ts     # Endpoint da Claude API
+│   ├── api/render/route.ts # Exporta o MP4 localmente
 │   ├── layout.tsx
 │   └── page.tsx
 ├── components/
@@ -70,5 +87,6 @@ src/
 └── remotion/
     ├── types.ts           # Tipos e estado padrão
     ├── VideoComposition.tsx  # Componente Remotion
-    └── Root.tsx           # Raiz Remotion
+    ├── Root.tsx           # Raiz Remotion
+    └── index.ts           # Entrada do `remotion render`
 ```

@@ -15,11 +15,11 @@ interface AIChatProps {
 }
 
 const EXAMPLES = [
+  'Crie um Reel "3 dicas de Git" com um título e três dicas aparecendo uma por vez',
   'Mude o título para "Bem-vindo ao Futuro"',
-  'Adicione um círculo roxo no centro',
-  'Aumente a duração para 10 segundos',
+  'Aumente a duração para 15 segundos',
   'Mude o fundo para azul escuro',
-  'Adicione um texto "Subscribe" com animação fadeIn',
+  'Adicione no final o texto "Siga para mais dicas de TI" com fadeIn',
 ];
 
 export default function AIChat({ currentState, onCompositionUpdate }: AIChatProps) {
@@ -68,13 +68,16 @@ export default function AIChat({ currentState, onCompositionUpdate }: AIChatProp
         const decoder = new TextDecoder();
 
         let assistantText = '';
+        let buffer = '';
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+          // Um evento pode chegar dividido em vários pedaços: só processa linhas completas
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
 
           for (const line of lines) {
             if (!line.startsWith('data: ')) continue;

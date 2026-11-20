@@ -1,6 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest } from 'next/server';
-import type { CompositionState } from '@/remotion/types';
+import {
+  SAFE_BOTTOM,
+  SAFE_SIDE,
+  SAFE_TOP,
+  VIDEO_FPS,
+  VIDEO_HEIGHT,
+  VIDEO_WIDTH,
+  type CompositionState,
+} from '@/remotion/types';
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -14,11 +22,17 @@ Regras:
 - Sempre use a ferramenta update_composition para retornar as alterações
 - Mantenha as propriedades que não precisam ser alteradas
 - Seja criativo e preciso nas edições
-- duração é em frames (30fps = 30 frames por segundo)
-- posições x/y são em pixels (largura padrão: 1280, altura: 720)
+- duração é em frames (${VIDEO_FPS} frames por segundo)
+- o vídeo é um Reel vertical do Instagram: ${VIDEO_WIDTH}px de largura por ${VIDEO_HEIGHT}px de altura
+- posições x/y são em pixels; o centro horizontal é x=${VIDEO_WIDTH / 2}
+- para textos, x é o centro do texto e y é o topo; textos longos quebram linha sozinhos
+- áreas seguras: o Instagram cobre o topo e o rodapé do Reel, então mantenha textos e
+  elementos importantes entre y=${SAFE_TOP} e y=${SAFE_BOTTOM}, e a pelo menos ${SAFE_SIDE}px das laterais
+- em tela de celular, textos precisam ser grandes: títulos de 90 a 130px, textos de apoio de 48 a 70px
+- camadas de imagem usam src com o caminho de um arquivo em public/ (ex.: "media/foto.png")
 - Explique brevemente o que foi alterado após chamar a ferramenta`;
 
-const tools: Anthropic.Tool[] = [
+const tools: Anthropic.Beta.BetaTool[] = [
   {
     name: 'update_composition',
     description: 'Atualiza o estado da composição de vídeo com as edições solicitadas',
@@ -57,6 +71,7 @@ const tools: Anthropic.Tool[] = [
               width: { type: 'number' },
               height: { type: 'number' },
               fill: { type: 'string' },
+              src: { type: 'string', description: 'Caminho da imagem em public/ (apenas para type=image)' },
             },
             required: ['id', 'type', 'from', 'durationInFrames'],
           },
@@ -66,6 +81,11 @@ const tools: Anthropic.Tool[] = [
     },
   },
 ];
+
+// Usado pelo chat para avisar quando a chave não está configurada
+export async function GET() {
+  return new Response(null, { status: process.env.ANTHROPIC_API_KEY ? 204 : 401 });
+}
 
 export async function POST(req: NextRequest) {
   const { messages, currentState } = (await req.json()) as {
@@ -84,21 +104,29 @@ export async function POST(req: NextRequest) {
     try {
       const systemWithState = `${SYSTEM_PROMPT}\n\nEstado atual da composição:\n${JSON.stringify(currentState, null, 2)}`;
 
-      const response = await client.messages.create({
-        model: 'claude-opus-4-6',
-        max_tokens: 4096,
+      const response = await client.beta.messages.create({
+        model: 'claude-opus-5-5',
+        max_tokens: 16000,
         thinking: { type: 'adaptive' },
+        // Se um pedido for recusado pelos filtros de segurança, outro modelo assume
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
         system: systemWithState,
         tools,
         messages,
       });
+
+      if (response.stop_reason === 'refusal') {
+        await send({ type: 'error', message: 'O Claude recusou esse pedido. Tente reformular.' });
+        return;
+      }
 
       let updatedState: CompositionState | null = null;
       let assistantText = '';
 
       for (const block of response.content) {
         if (block.type === 'text') {
-          assistantText = block.text;
+          assistantText += block.text;
         } else if (block.type === 'tool_use' && block.name === 'update_composition') {
           updatedState = block.input as CompositionState;
         }

@@ -1,15 +1,54 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { Player } from '@remotion/player';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Player, type PlayerRef } from '@remotion/player';
 import { VideoComposition } from '@/remotion/VideoComposition';
-import { DEFAULT_COMPOSITION, type CompositionState } from '@/remotion/types';
+import {
+  DEFAULT_COMPOSITION,
+  VIDEO_FPS,
+  VIDEO_HEIGHT,
+  VIDEO_WIDTH,
+  type CompositionState,
+} from '@/remotion/types';
 import AIChat from './AIChat';
 import Timeline from './Timeline';
 
 export default function VideoEditor() {
   const [composition, setComposition] = useState<CompositionState>(DEFAULT_COMPOSITION);
   const [currentFrame, setCurrentFrame] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const playerRef = useRef<PlayerRef>(null);
+
+  // A timeline acompanha o frame atual do Player
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player) return;
+    const onFrame = (e: { detail: { frame: number } }) => setCurrentFrame(e.detail.frame);
+    player.addEventListener('frameupdate', onFrame);
+    return () => player.removeEventListener('frameupdate', onFrame);
+  }, []);
+
+  const handleExport = useCallback(async () => {
+    const title = composition.layers.find((l) => l.type === 'text');
+    const name = title && 'text' in title ? title.text : 'reel';
+    setExporting(true);
+    setExportMessage('Renderizando o MP4 na sua máquina...');
+    try {
+      const res = await fetch('/api/render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: composition, name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Falha ao renderizar');
+      setExportMessage(`Vídeo salvo em ${data.video}`);
+    } catch (err) {
+      setExportMessage(`Erro: ${err instanceof Error ? err.message : 'desconhecido'}`);
+    } finally {
+      setExporting(false);
+    }
+  }, [composition]);
 
   const handleCompositionUpdate = useCallback((newState: CompositionState) => {
     setComposition(newState);
@@ -25,10 +64,23 @@ export default function VideoEditor() {
           </div>
           <h1 className="text-sm font-semibold text-gray-200">Editor de Vídeo com IA</h1>
         </div>
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          <span>{composition.durationInFrames} frames</span>
-          <span>·</span>
-          <span>{composition.layers.length} camadas</span>
+        <div className="flex items-center gap-3 text-xs text-gray-500">
+          <span>
+            {VIDEO_WIDTH}x{VIDEO_HEIGHT} · {(composition.durationInFrames / VIDEO_FPS).toFixed(1)}s ·{' '}
+            {composition.layers.length} camadas
+          </span>
+          {exportMessage && (
+            <span className="max-w-md truncate text-gray-400" title={exportMessage}>
+              {exportMessage}
+            </span>
+          )}
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 rounded text-white font-medium"
+          >
+            {exporting ? 'Exportando...' : 'Exportar MP4'}
+          </button>
         </div>
       </header>
 
@@ -36,17 +88,17 @@ export default function VideoEditor() {
       <div className="flex flex-1 overflow-hidden">
         {/* Left: Video Preview */}
         <div className="flex-1 flex flex-col p-4 gap-3">
-          <div className="flex-1 flex items-center justify-center bg-black rounded-lg overflow-hidden relative">
+          <div className="flex-1 min-h-0 flex items-center justify-center bg-black rounded-lg overflow-hidden relative">
             <Player
+              ref={playerRef}
               component={VideoComposition}
               inputProps={{ state: composition }}
               durationInFrames={composition.durationInFrames}
-              fps={30}
-              compositionWidth={1280}
-              compositionHeight={720}
-              style={{ width: '100%', maxWidth: '100%' }}
+              fps={VIDEO_FPS}
+              compositionWidth={VIDEO_WIDTH}
+              compositionHeight={VIDEO_HEIGHT}
+              style={{ height: '100%', aspectRatio: `${VIDEO_WIDTH} / ${VIDEO_HEIGHT}`, maxWidth: '100%' }}
               controls
-              onFrameUpdate={setCurrentFrame}
             />
           </div>
           <Timeline composition={composition} currentFrame={currentFrame} />

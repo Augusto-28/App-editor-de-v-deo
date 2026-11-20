@@ -6,15 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "studio": "remotion studio src/remotion/index.ts",
+    "render": "remotion render src/remotion/index.ts VideoEditor"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
-    "@remotion/player": "^4.0.0",
+    "@anthropic-ai/sdk": "^1.11.0",
+    "@remotion/cli": "4.0.545",
+    "@remotion/player": "4.0.545",
     "next": "^14.2.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "remotion": "^4.0.0"
+    "remotion": "4.0.545"
   },
   "devDependencies": {
     "@types/node": "^20",

@@ -1,6 +1,6 @@
 'use client';
 
-import type { CompositionState } from '@/remotion/types';
+import { VIDEO_FPS, type CompositionState } from '@/remotion/types';
 
 const COLORS: Record<string, string> = {
   text: '#6366f1',
@@ -21,7 +21,7 @@ export default function Timeline({ composition, currentFrame }: TimelineProps) {
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-medium text-gray-400">Timeline</h3>
         <span className="text-xs text-gray-600">
-          {currentFrame}/{durationInFrames}f · {(durationInFrames / 30).toFixed(1)}s
+          {currentFrame}/{durationInFrames}f · {(durationInFrames / VIDEO_FPS).toFixed(1)}s
         </span>
       </div>
 

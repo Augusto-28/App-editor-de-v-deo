@@ -1,6 +1,6 @@
 import { Composition } from 'remotion';
 import { VideoComposition } from './VideoComposition';
-import { DEFAULT_COMPOSITION } from './types';
+import { DEFAULT_COMPOSITION, VIDEO_FPS, VIDEO_HEIGHT, VIDEO_WIDTH, type CompositionState } from './types';
 
 export function RemotionRoot() {
   return (
@@ -8,10 +8,14 @@ export function RemotionRoot() {
       id="VideoEditor"
       component={VideoComposition}
       durationInFrames={DEFAULT_COMPOSITION.durationInFrames}
-      fps={30}
-      width={1280}
-      height={720}
+      fps={VIDEO_FPS}
+      width={VIDEO_WIDTH}
+      height={VIDEO_HEIGHT}
       defaultProps={{ state: DEFAULT_COMPOSITION }}
+      // A duração vem do projeto passado em --props
+      calculateMetadata={({ props }: { props: { state: CompositionState } }) => ({
+        durationInFrames: props.state.durationInFrames,
+      })}
     />
   );
 }
